@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
 import HapiFile from './interfaces/HapiFile';
+import axios from 'axios';
 
 const manifest = require('../package.json');
 
@@ -68,6 +69,52 @@ class DOC2PDF {
 
 				// Clean up original
 				fs.unlinkSync(payload.file.path);
+
+				const stream = fs.createReadStream(destPath);
+
+				stream.on('close', () => {
+					fs.unlinkSync(destPath);
+				});
+				stream.on('error', () => {
+					fs.unlinkSync(destPath);
+				});
+
+				return h.response(stream).type("application/pdf");
+			}
+		});
+
+		this.Server.route({
+			method: "GET",
+			path: "/preview",
+			options: {
+				validate: {
+					query: Joi.object({
+						src: Joi.string().required()
+					}),
+				},
+			},
+			handler: async (req, h) => {
+				const query = req.query as {
+					src: string,
+				};
+
+				const sourceFile = await axios.get(query.src, {
+					responseType: 'arraybuffer',
+					responseEncoding: "binary"
+				});
+
+				const tempPath = path.join(this.outDir, `${uuidv4()}.docx`);
+
+				fs.writeFileSync(tempPath, sourceFile.data);
+
+				const destPath = path.join(this.outDir, `${uuidv4()}.pdf`);
+				const command = `doc2pdf -o ${destPath} ${tempPath}`;
+
+				// Blindly convert it
+				execSync(command);
+
+				// Clean up original
+				fs.unlinkSync(tempPath);
 
 				const stream = fs.createReadStream(destPath);
 
