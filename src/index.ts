@@ -17,7 +17,10 @@ class DOC2PDF {
 
 	constructor() {
 		this.Server = new Hapi.Server({
-			port: process.env.PORT || 8080
+			port: process.env.PORT || 8080,
+			state: {
+				strictHeader: false
+			}
 		});
 
 		if (!fs.existsSync(this.outDir)) {
